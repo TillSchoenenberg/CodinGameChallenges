@@ -1,129 +1,115 @@
 ﻿using System;
 
-/**
- * Auto-generated code below aims at helping you parse
- * the standard input according to the problem statement.
- **/
-
-class BoardState
-{
-    public int X { get; set; }
-    public int Y { get; set; }
-    public int NextCheckpointX { get; set; }
-    public int NextCheckpointY { get; set; }
-    public int NextCheckpointDist { get; set; }
-    public int NextCheckpointAngle { get; set; }
-    public int OpponentX { get; set; }
-    public int OpponentY { get; set; }
-}
-
 class Player
 {
-    /// <summary>
-    /// Entry point for the PodRacer game loop.
-    /// </summary>
-    static void Main(string[] args)
+    // Persistent state across turns
+    static bool boostUsed = false;
+    static int prevX = int.MinValue, prevY = int.MinValue;
+    static int prevOppX = int.MinValue, prevOppY = int.MinValue;
+
+    static void Main()
     {
-        bool hasUsedBoost = false;
-        // game loop
         while (true)
         {
-            bool isBoostRecommended = GetInputs(out BoardState gameState);
-            int thrust = CalculateThrust(gameState, hasUsedBoost);
+            // Read own pod state
+            string[] inputs = Console.ReadLine().Split(' ');
+            int x = int.Parse(inputs[0]);
+            int y = int.Parse(inputs[1]);
+            int nextCheckpointX = int.Parse(inputs[2]);
+            int nextCheckpointY = int.Parse(inputs[3]);
+            int nextCheckpointDist = int.Parse(inputs[4]);
+            int nextCheckpointAngle = int.Parse(inputs[5]);
 
-            if (hasUsedBoost || !isBoostRecommended)
+            // Read opponent (single pod)
+            inputs = Console.ReadLine().Split(' ');
+            int opponentX = int.Parse(inputs[0]);
+            int opponentY = int.Parse(inputs[1]);
+
+            // Compute velocity (approx from last frame)
+            int vx = 0, vy = 0;
+            if (prevX != int.MinValue)
             {
-                Console.WriteLine($"{gameState.NextCheckpointX} {gameState.NextCheckpointY} {thrust}");
+                vx = x - prevX;
+                vy = y - prevY;
+            }
+            double speed = Hypot(vx, vy);
+
+            // Opponent velocity and relative speed (for SHIELD)
+            int oppVx = 0, oppVy = 0;
+            if (prevOppX != int.MinValue)
+            {
+                oppVx = opponentX - prevOppX;
+                oppVy = opponentY - prevOppY;
+            }
+            double relV = Hypot(vx - oppVx, vy - oppVy);
+            double oppDist = Hypot(opponentX - x, opponentY - y);
+
+            // Inertia-compensated aim (lead against our drift)
+            // Aim "inside" the turn by offsetting opposite to current velocity
+            // Factor tuned to ~3 frames of drift compensation
+            int leadFactor = 3;
+            int targetX = nextCheckpointX - vx * leadFactor;
+            int targetY = nextCheckpointY - vy * leadFactor;
+
+            // Optional gentle clamp to map bounds to avoid extreme targets
+            targetX = Clamp(targetX, -1000, 17000); // a little leeway is fine
+            targetY = Clamp(targetY, -1000, 10000);
+
+            // Thrust control
+            int thrust = 100;
+            int absAngle = Math.Abs(nextCheckpointAngle);
+
+            // Hard braking if we're pointing away
+            if (absAngle > 90) thrust = 0;
+            else if (absAngle > 70) thrust = 20;
+
+            // Distance-based braking: closer checkpoints -> ease off
+            // Brake distance scales with speed (heuristic)
+            int brakeDist = (int)Math.Max(1200, speed * 6.0);
+            if (nextCheckpointDist < brakeDist)
+            {
+                // Blend: more braking if angle is still significant
+                if (absAngle > 45) thrust = Math.Min(thrust, 30);
+                else thrust = Math.Min(thrust, 55);
+            }
+
+            // BOOST on a perfect long straight once
+            string action = thrust.ToString();
+            if (!boostUsed && absAngle < 5 && nextCheckpointDist > 6000 && speed > 250)
+            {
+                action = "BOOST";
+                boostUsed = true;
             }
             else
             {
-                hasUsedBoost = true; // Use boost only once
-                Console.WriteLine($"{gameState.NextCheckpointX} {gameState.NextCheckpointY} BOOST");
+                // SHIELD if we're about to collide (close + high relative speed)
+                if (oppDist < 800 && relV > 300 && speed > 200 && absAngle < 45)
+                {
+                    action = "SHIELD";
+                }
+                else
+                {
+                    action = thrust.ToString();
+                }
             }
+
+            Console.WriteLine($"{targetX} {targetY} {action}");
+
+            // Update state
+            prevX = x; prevY = y;
+            prevOppX = opponentX; prevOppY = opponentY;
         }
     }
 
-    /// <summary>
-    /// Parses input and updates the game state.
-    /// </summary>
-    private static bool GetInputs(out BoardState gameState)
+    static double Hypot(int dx, int dy)
     {
-        bool isBoostRecommended = false;
-        gameState = new BoardState();
-
-        string? inputLine = Console.ReadLine();
-        if (string.IsNullOrWhiteSpace(inputLine))
-            throw new InvalidOperationException("Input line is null or empty.");
-
-        string[] inputs = inputLine.Split(' ');
-        if (inputs.Length < 6)
-            throw new FormatException("Insufficient input data for player.");
-
-        gameState.X = int.Parse(inputs[0]);
-        gameState.Y = int.Parse(inputs[1]);
-        gameState.NextCheckpointX = int.Parse(inputs[2]);
-        gameState.NextCheckpointY = int.Parse(inputs[3]);
-        int nextCheckpointDist = int.Parse(inputs[4]);
-        gameState.NextCheckpointDist = nextCheckpointDist;
-        gameState.NextCheckpointAngle = int.Parse(inputs[5]);
-
-        // Recommend boost if at max distance and angle is small
-        if (nextCheckpointDist >= 6000 && Math.Abs(gameState.NextCheckpointAngle) < 5)
-        {
-            isBoostRecommended = true;
-        }
-
-        inputLine = Console.ReadLine();
-        if (string.IsNullOrWhiteSpace(inputLine))
-            throw new InvalidOperationException("Opponent input line is null or empty.");
-
-        inputs = inputLine.Split(' ');
-        if (inputs.Length < 2)
-            throw new FormatException("Insufficient input data for opponent.");
-
-        gameState.OpponentX = int.Parse(inputs[0]);
-        gameState.OpponentY = int.Parse(inputs[1]);
-
-        return isBoostRecommended;
+        return Math.Sqrt((double)dx * dx + (double)dy * dy);
     }
 
-    /// <summary>
-    /// Improved thrust calculation:
-    /// - Full thrust if angle is small and distance is large.
-    /// - Reduce thrust as angle increases or distance decreases.
-    /// - Minimum thrust if angle is very large (sharp turn).
-    /// </summary>
-    private static int CalculateThrust(BoardState gameState, bool hasUsedBoost)
+    static int Clamp(int v, int lo, int hi)
     {
-        int angle = Math.Abs(gameState.NextCheckpointAngle);
-        int dist = gameState.NextCheckpointDist;
-
-        // If angle is very large, slow down for sharp turn
-        if (angle > 120)
-            return 20;
-        if (angle > 90)
-            return 40;
-
-        // If distance is very small, slow down to avoid overshooting
-        if (dist < 1000)
-            return 30;
-
-        // If distance is moderate, use moderate thrust
-        if (dist < 3000)
-            return 60;
-
-        // If angle is small and distance is large, use max thrust
-        if (angle < 10 && dist > 6000 && !hasUsedBoost)
-            return 100;
-
-        // Otherwise, scale thrust based on distance and angle
-        double angleFactor = 1.0 - (angle / 90.0); // 1 at 0°, 0 at 90°
-        double distFactor = Math.Min(dist / 6000.0, 1.0); // 1 at 6000+, <1 below
-        int thrust = (int)(100 * angleFactor * distFactor);
-
-        // Clamp thrust to [30,100] for safety
-        thrust = Math.Clamp(thrust, 30, 100);
-
-        return thrust;
+        if (v < lo) return lo;
+        if (v > hi) return hi;
+        return v;
     }
 }
