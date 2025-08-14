@@ -1,9 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.13.35818.85 d17.13
+VisualStudioVersion = 17.13.35818.85
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PodRacer", "PodRacer\PodRacer.csproj", "{BE5B0994-4980-4A2F-AE78-DD93B9E3D6A3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AIChallenges.Common", "AIChallenges.Common\AIChallenges.Common.csproj", "{B2D05EBD-43CC-42EA-BFD1-42D69790A5D8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodinGame.FileMerger", "CodinGame.FileMerger\CodinGame.FileMerger.csproj", "{B544B0B4-7242-40DD-94A1-44391D5DA311}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +19,14 @@ Global
 		{BE5B0994-4980-4A2F-AE78-DD93B9E3D6A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BE5B0994-4980-4A2F-AE78-DD93B9E3D6A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BE5B0994-4980-4A2F-AE78-DD93B9E3D6A3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B2D05EBD-43CC-42EA-BFD1-42D69790A5D8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B2D05EBD-43CC-42EA-BFD1-42D69790A5D8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B2D05EBD-43CC-42EA-BFD1-42D69790A5D8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B2D05EBD-43CC-42EA-BFD1-42D69790A5D8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B544B0B4-7242-40DD-94A1-44391D5DA311}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B544B0B4-7242-40DD-94A1-44391D5DA311}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B544B0B4-7242-40DD-94A1-44391D5DA311}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B544B0B4-7242-40DD-94A1-44391D5DA311}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
