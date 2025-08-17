@@ -19,7 +19,7 @@ public class Game
     public Table Dough;
     public List<Table> Tables = new List<Table>();
     public List<Customer> Customers = new List<Customer>();
-    public Item? CurrentOrder = null;
+    //public Item? CurrentOrder = null;
 
     public int CroissantsBaked = 0;
     public int CroissantsOrdered = 0;
@@ -197,24 +197,50 @@ public class MainClass
                 Gameboard[x, i] = kitchenLine[x].ToString();
 
                 if (kitchenLine[x] == 'W') game.Window = new Table { Position = new Position(x, i), HasFunction = true };
-                if (kitchenLine[x] == 'D') game.Dishwasher = new Table { Position = new Position(x, i)
-                    , HasFunction = true, Item = new Item(DISH) };
-                if (kitchenLine[x] == 'I') game.IceCream = new Table { Position = new Position(x, i)
-                    , HasFunction = true, Item = new Item(ICE_CREAM) };
-                if (kitchenLine[x] == 'B') game.Blueberry = new Table { Position = new Position(x, i)
-                    , HasFunction = true, Item = new Item(BLUEBERRIES) };
-                if (kitchenLine[x] == 'S') game.Strawberry = new Table { Position = new Position(x, i)
-                    , HasFunction = true, Item = new Item(STRAWBERRIES) };
+                if (kitchenLine[x] == 'D') game.Dishwasher = new Table
+                {
+                    Position = new Position(x, i)
+                    ,
+                    HasFunction = true,
+                    Item = new Item(DISH)
+                };
+                if (kitchenLine[x] == 'I') game.IceCream = new Table
+                {
+                    Position = new Position(x, i)
+                    ,
+                    HasFunction = true,
+                    Item = new Item(ICE_CREAM)
+                };
+                if (kitchenLine[x] == 'B') game.Blueberry = new Table
+                {
+                    Position = new Position(x, i)
+                    ,
+                    HasFunction = true,
+                    Item = new Item(BLUEBERRIES)
+                };
+                if (kitchenLine[x] == 'S') game.Strawberry = new Table
+                {
+                    Position = new Position(x, i)
+                    ,
+                    HasFunction = true,
+                    Item = new Item(STRAWBERRIES)
+                };
                 if (kitchenLine[x] == 'C') game.ChoppingBoard = new Table { Position = new Position(x, i), HasFunction = true };
                 if (kitchenLine[x] == 'O') game.Oven = new Table { Position = new Position(x, i), HasFunction = true };
-                if (kitchenLine[x] == 'H') game.Dough = new Table { Position = new Position(x, i)
-                    , HasFunction = true, Item = new Item(DOUGH) };
+                if (kitchenLine[x] == 'H') game.Dough = new Table
+                {
+                    Position = new Position(x, i)
+                    ,
+                    HasFunction = true,
+                    Item = new Item(DOUGH)
+                };
                 if (kitchenLine[x] == '#') game.Tables.Add(new Table { Position = new Position(x, i) });
             }
         }
 
         game.Tables.Add(game.Blueberry);
         game.Tables.Add(game.IceCream);
+        game.Tables.Add(game.Dishwasher);
 
         return game;
     }
@@ -353,7 +379,7 @@ public class MainClass
             ////3. 
             if (myChef.HasItem() && !myChef.Item.Ingredients.Contains(Ingredient.DISH))
             {
-                if(myChef.Item.Ingredients.Contains(Ingredient.DOUGH)
+                if (myChef.Item.Ingredients.Contains(Ingredient.DOUGH)
                     || myChef.Item.Ingredients.Contains(Ingredient.STRAWBERRIES))
                 {
                     Console.Error.WriteLine("Need Dish but hands full");
@@ -363,34 +389,42 @@ public class MainClass
                 }
 
                 Console.Error.WriteLine("Get Dish");
-                Use(game.Dishwasher.Position);
+                var nearestDish = GetDish(myChef.Position, game);
+                Use(nearestDish);
                 continue;
             }
 
             //// 4.
-            //if(!myChef.HasItem())
-            //{
-            //    Console.Error.WriteLine("Get Dish");
-            //    Use(game.Dishwasher.Position);
-            //    continue;
-            //}
+            if (!myChef.HasItem())
+            {
+                Console.Error.WriteLine("Get Dish");
+                var nearestDish = GetDish(myChef.Position, game);
+                Use(nearestDish);
+                continue;
+            }
 
             // 5. Pick Order
 
-            if (game.CurrentOrder == null)
-            {
-                game.CurrentOrder = currentCustomers
-                    .OrderByDescending(c => c.Reward)
-                    .FirstOrDefault()?
-                    .Order;
+            var currentOrder = currentCustomers
+                      .OrderByDescending(c => c.Reward)
+                      .FirstOrDefault()?
+                      .Order;
 
-                if (Debug)
-                    Console.Error.WriteLine($"No current order, setting to: {game.CurrentOrder.Content}.");
+            if (Debug)
+                Console.Error.WriteLine($"CURRENT ORDER: {currentOrder.Content}.");
+
+            // Invalid Order
+            if (myChef.Item.Ingredients.Any(x => !currentOrder.Ingredients.Contains(x)))
+            {
+                Console.Error.WriteLine($"Invalid PLATE. Order was : {currentOrder.Content}");
+                var nearestFreeTable = FindFreeTable(game, myChef.Position);
+                Use(nearestFreeTable);
+                continue;
             }
 
-            // 6. Order completed
 
-            if (myChef.Item.Equals(game.CurrentOrder))
+            // 6. Order completed
+            if (myChef.Item.Equals(currentOrder))
             {
                 Use(game.Window.Position);
                 continue;
@@ -398,7 +432,7 @@ public class MainClass
 
             // 6.  Start Collecting Order Ingredients
 
-            Position? prePrepared = FindPrePrepared(game.CurrentOrder, game);
+            Position? prePrepared = FindPrePrepared(currentOrder, game);
             if (prePrepared != null)
             {
                 Use(prePrepared);
@@ -406,7 +440,7 @@ public class MainClass
             }
 
 
-            List<Ingredient> componentsMissing = GetMissingIngredients(game.CurrentOrder, myChef.Item);
+            List<Ingredient> componentsMissing = GetMissingIngredients(currentOrder, myChef.Item);
 
             if (Debug)
             {
@@ -422,6 +456,31 @@ public class MainClass
 
             Use(nextComponent);
         }
+    }
+
+    private static Position GetDish(Position myChefPosition, Game game)
+    {
+        int minDistance = int.MaxValue;
+        Position? nearestPosition = null;
+
+        if (Debug)
+            Console.Error.WriteLine($"Looking for DISH");
+
+        foreach (var table in game.Tables)
+        {
+            if (table.Item == null
+                || table.Item.Content != DISH)
+                continue;
+
+            int distance = myChefPosition.Manhattan(table.Position);
+            if (distance < minDistance)
+            {
+                minDistance = distance;
+                nearestPosition = table.Position;
+            }
+        }
+
+        return nearestPosition ?? game.Dishwasher.Position;
     }
 
     private static Position FindFreeTable(Game game, Position position)
@@ -513,20 +572,20 @@ public class MainClass
             Console.Error.WriteLine($"CurrentCustomer: {currentCustomers[i].Order}");
         }
 
-        if (game.CurrentOrder != null)
-        {
-            if (currentCustomers.Select(x => x.Order.Equals(game.CurrentOrder)).Any())
-            {
-                if (Debug)
-                    Console.Error.WriteLine($"Current Order {game.CurrentOrder.Content} is still valid.");
-            }
-            else
-            {
-                if (Debug)
-                    Console.Error.WriteLine($"Current Order {game.CurrentOrder.Content} is no longer valid, resetting to null.");
-                game.CurrentOrder = null;
-            }
-        }
+        //if (game.CurrentOrder != null)
+        //{
+        //    if (currentCustomers.Select(x => x.Order.Equals(game.CurrentOrder)).Any())
+        //    {
+        //        if (Debug)
+        //            Console.Error.WriteLine($"Current Order {game.CurrentOrder.Content} is still valid.");
+        //    }
+        //    else
+        //    {
+        //        if (Debug)
+        //            Console.Error.WriteLine($"Current Order {game.CurrentOrder.Content} is no longer valid, resetting to null.");
+        //        game.CurrentOrder = null;
+        //    }
+        //}
     }
 
     private static Position? GetNearestIngredient(List<Ingredient> componentsMissing, Player myChef, Game game)
@@ -541,8 +600,7 @@ public class MainClass
 
         if (!myChef.Item.Ingredients.Contains(Ingredient.DISH))
         {
-            Console.Error.WriteLine("pick up a dish.");
-            return game.Dishwasher.Position;
+            return GetDish(myChefPosition, game);
         }
 
         int minDistance = int.MaxValue;
@@ -550,10 +608,10 @@ public class MainClass
 
         foreach (var missing in componentsMissing)
         {
-            if(Debug)
+            if (Debug)
                 Console.Error.WriteLine($"Looking for {missing}");
 
-            if(missing == Ingredient.BLUEBERRIES)
+            if (missing == Ingredient.BLUEBERRIES)
             {
                 int distance = myChefPosition.Manhattan(game.Blueberry.Position);
                 if (distance < minDistance)
