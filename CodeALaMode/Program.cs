@@ -405,10 +405,13 @@ public class MainClass
 
             // 5. Pick Order
 
-            var currentOrder = currentCustomers
+            var preOrder = currentCustomers
+                        .Where(x => !x.Order.Content.Contains("TART"))
                       .OrderByDescending(c => c.Reward)
-                      .FirstOrDefault()?
-                      .Order;
+                      .FirstOrDefault();
+
+            var currentOrder = preOrder == null ?
+                preOrder.Order : currentCustomers.OrderByDescending(x => x.Reward).First().Order;
 
             if (Debug)
                 Console.Error.WriteLine($"CURRENT ORDER: {currentOrder.Content}.");
