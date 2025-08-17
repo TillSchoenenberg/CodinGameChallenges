@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AIChallenges.Common", "AICh
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodinGame.FileMerger", "CodinGame.FileMerger\CodinGame.FileMerger.csproj", "{B544B0B4-7242-40DD-94A1-44391D5DA311}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodeALaMode", "CodeALaMode\CodeALaMode.csproj", "{FC46BE63-1009-4B6D-87B9-A84C66ACB6C4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{B544B0B4-7242-40DD-94A1-44391D5DA311}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B544B0B4-7242-40DD-94A1-44391D5DA311}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B544B0B4-7242-40DD-94A1-44391D5DA311}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FC46BE63-1009-4B6D-87B9-A84C66ACB6C4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FC46BE63-1009-4B6D-87B9-A84C66ACB6C4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FC46BE63-1009-4B6D-87B9-A84C66ACB6C4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FC46BE63-1009-4B6D-87B9-A84C66ACB6C4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

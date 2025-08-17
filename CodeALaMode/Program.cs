@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 public class Game
 {
@@ -14,10 +15,28 @@ public class Game
     public Table IceCream;
     public Table Strawberry;
     public Table ChoppingBoard;
+    public Table Oven;
+    public Table Dough;
     public List<Table> Tables = new List<Table>();
     public List<Customer> Customers = new List<Customer>();
+    public Item? CurrentOrder = null;
+
+    public int CroissantsBaked = 0;
+    public int CroissantsOrdered = 0;
+
+    public int StrawberriesChopped = 0;
+    public int ChoppedStrawberriesOrdered = 0;
+    public bool OvenWasEmpty = true;
+    public bool WasHoldingStrawberries = false;
 }
 
+public class Table
+{
+    public Position Position;
+    public Item Item;
+    public bool HasFunction;
+    public bool IsFree => Item == null || Item.Content == "NONE";
+}
 
 public enum Ingredient
 {
@@ -25,16 +44,12 @@ public enum Ingredient
     BLUEBERRIES,
     STRAWBERRIES,
     DISH,
+    DOUGH,
     CHOPPED_STRAWBERRIES,
-}
-public class Table
-{
-    public Position Position;
-    public bool HasFunction;
-    public Item Item;
+    CROISSANT,
 }
 
-public class  Customer
+public class Customer
 {
     public int Reward;
     public Item Order;
@@ -43,11 +58,43 @@ public class  Customer
 public class Item
 {
     public string Content;
-    public bool HasPlate;
     public Item(string content)
     {
         Content = content;
-        HasPlate = Content.Contains(MainClass.Dish);
+    }
+
+    public override string ToString()
+    {
+        return Content;
+    }
+
+    /// <summary>
+    /// compare two items for equality of their Ingredients, ignoring order.
+    /// </summary>
+    /// <param name="obj"></param>
+    /// <returns></returns>
+    public override bool Equals(object? obj)
+    {
+        if (obj == null || GetType() != obj.GetType())
+            return false;
+        var other = (Item)obj;
+        var setA = new HashSet<Ingredient>(this.Ingredients);
+        var setB = new HashSet<Ingredient>(other.Ingredients);
+        return setA.SetEquals(setB);
+    }
+
+    public override int GetHashCode()
+    {
+        unchecked
+        {
+            int hash = 17;
+            var set = new HashSet<Ingredient>(Ingredients);
+            foreach (var ing in set.OrderBy(i => i))
+            {
+                hash = hash * 31 + ing.GetHashCode();
+            }
+            return hash;
+        }
     }
 
     public List<Ingredient> Ingredients
@@ -59,10 +106,10 @@ public class Item
             var ingredients = new List<Ingredient>();
             var strings = Content.Split('-');
 
-            foreach(var s in strings)
+            foreach (var s in strings)
             {
                 Ingredient component;
-                if(Enum.TryParse(s, true, out component))
+                if (Enum.TryParse(s, true, out component))
                 {
                     ingredients.Add(component);
                 }
@@ -91,6 +138,16 @@ public class Player
         Position = position;
         Item = item;
     }
+
+    public bool HasItem()
+    {
+        return Item != null && Item.Content != "NONE";
+    }
+
+    public bool HasDish()
+    {
+        return Item != null && Item.Ingredients.Contains(Ingredient.DISH);
+    }
 }
 
 public class Position
@@ -115,8 +172,16 @@ public class Position
 public class MainClass
 {
     public static bool Debug = true;
-    public const string Dish = "DISH";
     public static string[,] Gameboard = new string[11, 7];
+
+
+    const string CROISSANT = "CROISSANT";
+    const string DOUGH = "DOUGH";
+    const string DISH = "DISH";
+    const string CHOPPED_STRAWBERRIES = "CHOPPED_STRAWBERRIES";
+    const string STRAWBERRIES = "STRAWBERRIES";
+    const string ICE_CREAM = "ICE_CREAM";
+    const string BLUEBERRIES = "BLUEBERRIES";
 
     public static Game ReadGame()
     {
@@ -132,14 +197,24 @@ public class MainClass
                 Gameboard[x, i] = kitchenLine[x].ToString();
 
                 if (kitchenLine[x] == 'W') game.Window = new Table { Position = new Position(x, i), HasFunction = true };
-                if (kitchenLine[x] == 'D') game.Dishwasher = new Table { Position = new Position(x, i), HasFunction = true };
-                if (kitchenLine[x] == 'I') game.IceCream = new Table { Position = new Position(x, i), HasFunction = true };
-                if (kitchenLine[x] == 'B') game.Blueberry = new Table { Position = new Position(x, i), HasFunction = true };
-                if (kitchenLine[x] == 'S') game.Strawberry = new Table { Position = new Position(x, i), HasFunction = true };
+                if (kitchenLine[x] == 'D') game.Dishwasher = new Table { Position = new Position(x, i)
+                    , HasFunction = true, Item = new Item(DISH) };
+                if (kitchenLine[x] == 'I') game.IceCream = new Table { Position = new Position(x, i)
+                    , HasFunction = true, Item = new Item(ICE_CREAM) };
+                if (kitchenLine[x] == 'B') game.Blueberry = new Table { Position = new Position(x, i)
+                    , HasFunction = true, Item = new Item(BLUEBERRIES) };
+                if (kitchenLine[x] == 'S') game.Strawberry = new Table { Position = new Position(x, i)
+                    , HasFunction = true, Item = new Item(STRAWBERRIES) };
                 if (kitchenLine[x] == 'C') game.ChoppingBoard = new Table { Position = new Position(x, i), HasFunction = true };
+                if (kitchenLine[x] == 'O') game.Oven = new Table { Position = new Position(x, i), HasFunction = true };
+                if (kitchenLine[x] == 'H') game.Dough = new Table { Position = new Position(x, i)
+                    , HasFunction = true, Item = new Item(DOUGH) };
                 if (kitchenLine[x] == '#') game.Tables.Add(new Table { Position = new Position(x, i) });
             }
         }
+
+        game.Tables.Add(game.Blueberry);
+        game.Tables.Add(game.IceCream);
 
         return game;
     }
@@ -172,71 +247,173 @@ public class MainClass
         List<Customer> customers = new List<Customer>();
         // ALL CUSTOMERS INPUT: to ignore until Bronze
         int numAllCustomers = int.Parse(ReadLine());
+        int croissantsOrdered = 0;
+        int strawberriesOrdered = 0;
         for (int i = 0; i < numAllCustomers; i++)
         {
             inputs = ReadLine().Split(' ');
             string customerItem = inputs[0]; // the food the customer is waiting for
             int customerAward = int.Parse(inputs[1]); // the number of points awarded for delivering the food
-            customers.Add(new Customer { Order = new Item(customerItem), Reward = customerAward });
+            var newCustomer = new Customer { Order = new Item(customerItem), Reward = customerAward };
+            customers.Add(newCustomer);
+            if (newCustomer.Order.Ingredients.Contains(Ingredient.CROISSANT))
+            {
+                croissantsOrdered++;
+            }
+            if (newCustomer.Order.Ingredients.Contains(Ingredient.CHOPPED_STRAWBERRIES))
+            {
+                strawberriesOrdered++;
+            }
         }
 
         // KITCHEN INPUT
         var game = ReadGame();
+        game.ChoppedStrawberriesOrdered = strawberriesOrdered;
+        game.CroissantsOrdered = croissantsOrdered;
         game.Customers = customers;
 
         while (true)
         {
-            int turnsRemaining = int.Parse(ReadLine());
-
-            // PLAYERS INPUT
-            inputs = ReadLine().Split(' ');
-            game.Players[0].Update(new Position(int.Parse(inputs[0]), int.Parse(inputs[1])), new Item(inputs[2]));
-            inputs = ReadLine().Split(' ');
-            game.Players[1].Update(new Position(int.Parse(inputs[0]), int.Parse(inputs[1])), new Item(inputs[2]));
-
-            //Clean other tables
-            foreach (var t in game.Tables)
-            {
-                t.Item = null;
-            }
-            int numTablesWithItems = int.Parse(ReadLine()); // the number of tables in the kitchen that currently hold an item
-            for (int i = 0; i < numTablesWithItems; i++)
-            {
-                inputs = ReadLine().Split(' ');
-                var table = game.Tables.First(t => t.Position.X == int.Parse(inputs[0]) && t.Position.Y == int.Parse(inputs[1]));
-                table.Item = new Item(inputs[2]);
-            }
-
-            inputs = ReadLine().Split(' ');
-            string ovenContents = inputs[0]; // ignore until bronze league
-            int ovenTimer = int.Parse(inputs[1]);
-            int numCustomers = int.Parse(ReadLine()); // the number of customers currently waiting for food
-            Customer[] currentCustomers = new Customer[numCustomers];
-            for (int i = 0; i < numCustomers; i++)
-            {
-                inputs = ReadLine().Split(' ');
-                string customerItem = inputs[0];
-                int customerAward = int.Parse(inputs[1]);
-                currentCustomers[i] = new Customer { Order = new Item(customerItem), Reward = customerAward };
-            }
+            ReadTurnData(game, out Customer[] currentCustomers);
 
             // GAME LOGIC
-            // fetch a dish, pick ice cream and drop the dish on an empty table
-
-
             var myChef = game.Players[0];
 
-            Customer? customerToServe = GetCustomerToServe(currentCustomers, myChef.Item);
-            if (customerToServe == null)
+            // 0.
+            if (game.Oven.Item != null && game.Oven.Item.Content == CROISSANT)
             {
-                Console.Error.WriteLine("No customer to serve found.");
+                Console.Error.WriteLine("Croissant ready in oven");
+                if (myChef.HasItem())
+                {
+                    Console.Error.WriteLine("Clear Hands");
+                    var nearestFreeTable = FindFreeTable(game, myChef.Position);
+                    Use(nearestFreeTable);
+                }
+                else
+                {
+                    Console.Error.WriteLine("Get Croissant from oven");
+                    Use(game.Oven.Position);
+                }
+                continue;
+            }
+
+            //1.#
+            bool CroissantReady = game.Tables.Any(x => x.Item != null && x.Item.Content == CROISSANT) ||
+                myChef.Item.Ingredients.Contains(Ingredient.CROISSANT);
+
+            if (game.CroissantsBaked < game.CroissantsOrdered
+                && game.Oven.IsFree && !CroissantReady)
+            {
+                Console.Error.WriteLine("Oven is empty, bake croissant.");
+
+                if (myChef.HasItem() && myChef.Item.Content != DOUGH)
+                {
+                    Console.Error.WriteLine("Empty Hands.");
+                    Position nearestFreeTable = FindFreeTable(game, myChef.Position);
+                    Use(nearestFreeTable);
+                }
+                else if (myChef.HasItem() && myChef.Item.Content == DOUGH)
+                {
+                    Console.Error.WriteLine("Put dough in Oven");
+                    Use(game.Oven.Position);
+                }
+                else
+                {
+                    Console.Error.WriteLine("Get Dough");
+                    Use(game.Dough.Position);
+                }
+                continue;
+            }
+
+            //2.
+            bool StrawberriesReady = game.Tables.Any(x => x.Item != null && x.Item.Content == CHOPPED_STRAWBERRIES)
+                                        || myChef.Item.Ingredients.Contains(Ingredient.CHOPPED_STRAWBERRIES);
+
+            if (game.StrawberriesChopped < game.ChoppedStrawberriesOrdered && !StrawberriesReady)
+            {
+                if (myChef.HasItem() && myChef.Item.Content != STRAWBERRIES)
+                {
+                    Console.Error.WriteLine("Empty Hands.");
+                    Position nearestFreeTable = FindFreeTable(game, myChef.Position);
+                    Use(nearestFreeTable);
+                }
+                else if (myChef.HasItem() && myChef.Item.Content == STRAWBERRIES)
+                {
+                    Console.Error.WriteLine("Chop Strawberries");
+                    Use(game.ChoppingBoard.Position);
+                }
+                else
+                {
+                    Console.Error.WriteLine("Get Strawberries");
+                    Use(game.Strawberry.Position);
+                }
+                continue;
+            }
+
+            ////3. 
+            if (myChef.HasItem() && !myChef.Item.Ingredients.Contains(Ingredient.DISH))
+            {
+                if(myChef.Item.Ingredients.Contains(Ingredient.DOUGH)
+                    || myChef.Item.Ingredients.Contains(Ingredient.STRAWBERRIES))
+                {
+                    Console.Error.WriteLine("Need Dish but hands full");
+                    var nearestFreeTable = FindFreeTable(game, myChef.Position);
+                    Use(nearestFreeTable);
+                    continue;
+                }
+
+                Console.Error.WriteLine("Get Dish");
                 Use(game.Dishwasher.Position);
                 continue;
             }
-            List<Ingredient> componentsMissing = GetMissingIngredients(customerToServe.Order, myChef.Item);
 
+            //// 4.
+            //if(!myChef.HasItem())
+            //{
+            //    Console.Error.WriteLine("Get Dish");
+            //    Use(game.Dishwasher.Position);
+            //    continue;
+            //}
+
+            // 5. Pick Order
+
+            if (game.CurrentOrder == null)
+            {
+                game.CurrentOrder = currentCustomers
+                    .OrderByDescending(c => c.Reward)
+                    .FirstOrDefault()?
+                    .Order;
+
+                if (Debug)
+                    Console.Error.WriteLine($"No current order, setting to: {game.CurrentOrder.Content}.");
+            }
+
+            // 6. Order completed
+
+            if (myChef.Item.Equals(game.CurrentOrder))
+            {
+                Use(game.Window.Position);
+                continue;
+            }
+
+            // 6.  Start Collecting Order Ingredients
+
+            Position? prePrepared = FindPrePrepared(game.CurrentOrder, game);
+            if (prePrepared != null)
+            {
+                Use(prePrepared);
+                continue;
+            }
+
+
+            List<Ingredient> componentsMissing = GetMissingIngredients(game.CurrentOrder, myChef.Item);
+
+            if (Debug)
+            {
+                Console.Error.WriteLine($"Missing Ingredients: {String.Join(' ', componentsMissing)}");
+            }
             Position? nextComponent = GetNearestIngredient(componentsMissing, myChef, game);
-            if(nextComponent == null)
+            if (nextComponent == null)
             {
                 Console.Error.WriteLine("ERROR: No next ingredient found.");
                 Wait();
@@ -247,84 +424,170 @@ public class MainClass
         }
     }
 
+    private static Position FindFreeTable(Game game, Position position)
+    {
+        foreach (var table in game.Tables.OrderBy(x => position.Manhattan(x.Position)))
+        {
+            if ((table.Item == null || table.Item.Content == "NONE") && !table.HasFunction)
+            {
+                Console.Error.WriteLine($"Found free table at {table.Position}");
+                return table.Position;
+            }
+        }
+
+        throw new InvalidOperationException("No free table found.");
+    }
+
+    private static Position? FindPrePrepared(Item order, Game game)
+    {
+        foreach (var table in game.Tables.OrderBy(x => game.Players[0].Position.Manhattan(x.Position)))
+        {
+            if (table.Item != null && table.Item.Equals(order))
+            {
+                Console.Error.WriteLine($"Found pre-prepared item {order.Content} at {table.Position}");
+                return table.Position;
+            }
+        }
+
+        return null;
+    }
+
+    private static void ReadTurnData(Game game, out Customer[] currentCustomers)
+    {
+        int turnsRemaining = int.Parse(ReadLine());
+        string[] inputs;
+
+        // PLAYERS INPUT
+        inputs = ReadLine().Split(' ');
+        game.Players[0].Update(new Position(int.Parse(inputs[0]), int.Parse(inputs[1])), new Item(inputs[2]));
+        if (game.Players[0].Item.Content == CHOPPED_STRAWBERRIES && !game.WasHoldingStrawberries)
+        {
+            game.WasHoldingStrawberries = true;
+            game.StrawberriesChopped++;
+        }
+        else if (game.Players[0].Item.Content != CHOPPED_STRAWBERRIES && game.WasHoldingStrawberries)
+        {
+            game.WasHoldingStrawberries = false;
+        }
+
+        inputs = ReadLine().Split(' ');
+        game.Players[1].Update(new Position(int.Parse(inputs[0]), int.Parse(inputs[1])), new Item(inputs[2]));
+
+        //Clean other tables
+        foreach (var t in game.Tables)
+        {
+            t.Item = null;
+        }
+        int numTablesWithItems = int.Parse(ReadLine()); // the number of tables in the kitchen that currently hold an item
+        for (int i = 0; i < numTablesWithItems; i++)
+        {
+            inputs = ReadLine().Split(' ');
+            var table = game.Tables.First(t => t.Position.X == int.Parse(inputs[0]) && t.Position.Y == int.Parse(inputs[1]));
+            table.Item = new Item(inputs[2]);
+        }
+
+        inputs = ReadLine().Split(' ');
+        string ovenContents = inputs[0]; // ignore until bronze league
+        if (Debug)
+            Console.Error.WriteLine($"Oven Contents: {ovenContents}");
+        game.Oven.Item = new Item(ovenContents);
+        if (game.Oven.Item.Content == CROISSANT && game.OvenWasEmpty)
+        {
+            game.OvenWasEmpty = false;
+            game.CroissantsBaked++;
+        }
+        else if (game.Oven.Item.Content != CROISSANT && !game.OvenWasEmpty)
+        {
+            game.OvenWasEmpty = true;
+        }
+
+        int ovenTimer = int.Parse(inputs[1]);
+        int numCustomers = int.Parse(ReadLine()); // the number of customers currently waiting for food
+        currentCustomers = new Customer[numCustomers];
+        for (int i = 0; i < numCustomers; i++)
+        {
+            inputs = ReadLine().Split(' ');
+            string customerItem = inputs[0];
+            int customerAward = int.Parse(inputs[1]);
+            currentCustomers[i] = new Customer { Order = new Item(customerItem), Reward = customerAward };
+            Console.Error.WriteLine($"CurrentCustomer: {currentCustomers[i].Order}");
+        }
+
+        if (game.CurrentOrder != null)
+        {
+            if (currentCustomers.Select(x => x.Order.Equals(game.CurrentOrder)).Any())
+            {
+                if (Debug)
+                    Console.Error.WriteLine($"Current Order {game.CurrentOrder.Content} is still valid.");
+            }
+            else
+            {
+                if (Debug)
+                    Console.Error.WriteLine($"Current Order {game.CurrentOrder.Content} is no longer valid, resetting to null.");
+                game.CurrentOrder = null;
+            }
+        }
+    }
+
     private static Position? GetNearestIngredient(List<Ingredient> componentsMissing, Player myChef, Game game)
     {
-        if(componentsMissing.Count == 0)
+        if (componentsMissing.Count == 0)
         {
             return game.Window.Position;
         }
 
-        Console.Error.WriteLine($"Components missing: {string.Join(", ", componentsMissing)}");
-
         Position myChefPosition = myChef.Position;
-        Position nearestPosition = null;
-        int minDistance = int.MaxValue;
-        int distance;
         var ingredients = myChef.Item.Ingredients;
-        if (componentsMissing.Contains(Ingredient.CHOPPED_STRAWBERRIES))
-        {
-            if (!ingredients.Contains(Ingredient.STRAWBERRIES))
-                return game.Strawberry.Position;
-            if(!ingredients.Contains(Ingredient.CHOPPED_STRAWBERRIES))
-                return game.ChoppingBoard.Position;
-        }
 
-        if(ingredients.Contains(Ingredient.CHOPPED_STRAWBERRIES) && !ingredients.Contains(Ingredient.DISH))
+        if (!myChef.Item.Ingredients.Contains(Ingredient.DISH))
         {
+            Console.Error.WriteLine("pick up a dish.");
             return game.Dishwasher.Position;
         }
 
-        foreach (var ingredient in componentsMissing)
+        int minDistance = int.MaxValue;
+        Position? nearestPosition = null;
+
+        foreach (var missing in componentsMissing)
         {
-            switch(ingredient)
+            if(Debug)
+                Console.Error.WriteLine($"Looking for {missing}");
+
+            if(missing == Ingredient.BLUEBERRIES)
             {
-                case Ingredient.ICE_CREAM:
-                    distance = myChefPosition.Manhattan(game.IceCream.Position);
-                    if (distance < minDistance)
-                    {
-                        nearestPosition = game.IceCream.Position;
-                        minDistance = distance;
-                    }
-                    break;
-                case Ingredient.BLUEBERRIES:
-                    distance = myChefPosition.Manhattan(game.Blueberry.Position);
-                    if (distance < minDistance)
-                    {
-                        nearestPosition = game.Blueberry.Position;
-                        minDistance = distance;
-                    }
-                    break;
-                case Ingredient.CHOPPED_STRAWBERRIES:
-                    if(myChef.Item.Ingredients.Contains(Ingredient.STRAWBERRIES))
-                    {
-                        distance = myChefPosition.Manhattan(game.ChoppingBoard.Position);
-                        if(distance < minDistance)
-                        {
-                            nearestPosition = game.ChoppingBoard.Position;
-                            minDistance = distance;
-                        }
-                    }
-                    else
-                    {
-                        distance = myChefPosition.Manhattan(game.Strawberry.Position);
-                        if (distance < minDistance)
-                        {
-                            nearestPosition = game.Strawberry.Position;
-                            minDistance = distance;
-                        }
-                    }
-                    break;
-                case Ingredient.DISH:
-                    distance = myChefPosition.Manhattan(game.Dishwasher.Position);
-                    if (distance < minDistance)
-                    {
-                        nearestPosition = game.Dishwasher.Position;
-                        minDistance = distance;
-                    }
-                    break;
-                default:
-                    Console.Error.WriteLine($"Unknown ingredient: {ingredient}");
-                    break;
+                int distance = myChefPosition.Manhattan(game.Blueberry.Position);
+                if (distance < minDistance)
+                {
+                    minDistance = distance;
+                    nearestPosition = game.Blueberry.Position;
+                }
+                continue;
+            }
+
+            if (missing == Ingredient.ICE_CREAM)
+            {
+                int distance = myChefPosition.Manhattan(game.IceCream.Position);
+                if (distance < minDistance)
+                {
+                    minDistance = distance;
+                    nearestPosition = game.IceCream.Position;
+                }
+                continue;
+            }
+
+            foreach (var table in game.Tables)
+            {
+                if (table.Item == null
+                    || table.Item.Content != missing.ToString())
+                    continue;
+
+
+                int distance = myChefPosition.Manhattan(table.Position);
+                if (distance < minDistance)
+                {
+                    minDistance = distance;
+                    nearestPosition = table.Position;
+                }
             }
         }
 
@@ -343,30 +606,4 @@ public class MainClass
 
 
 
-    private static Customer? GetCustomerToServe(Customer[] currentCustomers, Item item)
-    {
-        // not started a dish yet
-        if (item == null || item.Content == "NONE")
-        {
-            return currentCustomers.Last(x => x.Reward == currentCustomers.Max(y => y.Reward));
-        }
-
-        //started a dish, filter matching customers
-        string[] componentsReady = item.Content.Split('-');
-        List<Customer> possibleCustomers = new List<Customer>();
-        foreach(var customer in currentCustomers)
-        {
-            string contents = customer.Order.Content;
-            if (!componentsReady.Any(c => contents.Contains(c)))
-            {
-                Console.Error.WriteLine($"No matching customer for {item.Content} in {contents}");
-                continue;
-            }
-
-            possibleCustomers.Add(customer);
-        }
-
-        return possibleCustomers
-            .LastOrDefault(x => x.Reward == possibleCustomers.Max(y => y.Reward));
-    }
 }
