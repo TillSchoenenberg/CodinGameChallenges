@@ -19,6 +19,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HappyNumbers", "HappyNumber
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HappyNumbers.Tests", "HappyNumbers.Tests\HappyNumbers.Tests.csproj", "{5911ECDA-6983-43AB-8B98-46EECB33CB0D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "War", "War\War.csproj", "{EB3CA0A1-E5BE-45A0-82CD-CADC90F6184A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "War.Tests", "War.Tests\War.Tests.csproj", "{A6336BD1-76A4-402A-93E5-41763D7D3F23}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -57,6 +61,14 @@ Global
 		{5911ECDA-6983-43AB-8B98-46EECB33CB0D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5911ECDA-6983-43AB-8B98-46EECB33CB0D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5911ECDA-6983-43AB-8B98-46EECB33CB0D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EB3CA0A1-E5BE-45A0-82CD-CADC90F6184A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EB3CA0A1-E5BE-45A0-82CD-CADC90F6184A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EB3CA0A1-E5BE-45A0-82CD-CADC90F6184A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EB3CA0A1-E5BE-45A0-82CD-CADC90F6184A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A6336BD1-76A4-402A-93E5-41763D7D3F23}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A6336BD1-76A4-402A-93E5-41763D7D3F23}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A6336BD1-76A4-402A-93E5-41763D7D3F23}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A6336BD1-76A4-402A-93E5-41763D7D3F23}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
